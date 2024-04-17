@@ -151,12 +151,14 @@ if __name__ == '__main__':
     }
     with torch.no_grad():
         for pcgcv2_ckpt in ckpts:
+            # 读取模型
             ddpcc_ckpt = os.path.join(args.ckpt_dir, ckpts[pcgcv2_ckpt])
             pcgcv2_ckpt = os.path.join(args.pcgcv2_ckpt_dir, pcgcv2_ckpt)
             checkpoint = torch.load(ddpcc_ckpt, map_location='cuda:0')
             model.load_state_dict(checkpoint['model_state_dict'])
             model = model.to(device).eval()
             for sequence in (0, 1, 2, 3):
+                # 读取数据集
                 dataset = Dataset(root_dir=args.dataset_dir, split=[sequence], type='test', format='ply')
                 sequence_name = dataset.sequence_list[sequence]
                 log_string('start testing sequence ' + sequence_name + ', rate point ' + ddpcc_ckpt)
@@ -183,10 +185,14 @@ if __name__ == '__main__':
 
                 for i in range(1, args.frame_count):
                     out2, out_cls2, target2, keep2 = [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]
+                    # 从 dataset 中读取两帧点云
                     xyz, point, xyz1, point1 = collate_pointcloud_fn([dataset[i-1]])
+                    # 第 i - 1帧的稀疏张量
                     f2 = ME.SparseTensor(features=point1, coordinates=xyz1, device=device)
                     num_points = f2.size()[0]
 
+                    # 压缩第 1, i - 1 帧
+                    # 这里用 model
                     ys2, out2, out_cls2, target2, keep2, ddpcc_bpp = model(f1, f2, f2.device)
                     ddpcc_bpp = ddpcc_bpp.item()
                     ys2_4_C = (ys2[4].C[:, 1:]//8).detach().cpu().numpy()
@@ -194,6 +200,7 @@ if __name__ == '__main__':
                     gpcc_encode(os.path.join(tmp_dir, 'ys2_4.ply'), gpcc_bitstream_filename)
 
                     # encode ys2
+                    # 这里用 lossless model
                     ys2_2 = ME.SparseTensor(torch.ones_like(ys2[2].F[:, :1]), coordinate_manager=ys2[2].coordinate_manager, coordinate_map_key=ys2[2].coordinate_map_key)
                     bits_ys2_2, quant_out2, cls, target = lossless_model.compressor(ys2_2, -1)
                     ys2_2_bpp = bits_ys2_2 / num_points
