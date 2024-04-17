@@ -52,6 +52,18 @@ def index_points(points, idx):
 
 
 def quant(x, training=False, qs=1):
+    """
+    Quantizes the input tensor `x` based on the given quantization scale `qs`.
+    
+    Args:
+        x (torch.Tensor): The input tensor to be quantized.
+        training (bool, optional): Whether the quantization is performed during training. 
+            Defaults to False.
+        qs (float, optional): The quantization scale. Defaults to 1.
+    
+    Returns:
+        torch.Tensor: The quantized tensor.
+    """
     if training:
         compressed_x = x + torch.nn.init.uniform_(torch.zeros_like(x), -0.5, 0.5) * qs
     else:
@@ -79,6 +91,16 @@ def index_by_channel(point1, idx, K=3):
 
 
 def get_target_by_sp_tensor(out, target_sp_tensor):
+    """
+    Get the target tensor by comparing the coordinates of two sparse tensors.
+
+    Args:
+        out (torch.Tensor): The output sparse tensor.
+        target_sp_tensor (torch.Tensor): The target sparse tensor.
+
+    Returns:
+        torch.Tensor: A boolean tensor indicating whether each element of the output tensor is present in the target tensor.
+    """
     with torch.no_grad():
         def ravel_multi_index(coords, step):
             coords = coords.long()
@@ -172,6 +194,15 @@ class inter_prediction(nn.Module):
         self.pruning = ME.MinkowskiPruning()
 
     def prune(self, f1, f2):
+        """ Intersection of f1 and f2.
+
+        Args:
+            f1 (Tensor): The first input tensor.
+            f2 (Tensor): The second input tensor.
+
+        Returns:
+            Tensor: The pruned output tensor.
+        """
         mask = get_target_by_sp_tensor(f1, f2)
         out = self.pruning(f1, mask)
         return out
@@ -312,6 +343,17 @@ class DownsampleLayer(nn.Module):
 
 
 class DownsampleWithPruning(nn.Module):
+    """
+    A module that performs downsampling with pruning using MinkowskiEngine.
+    
+    Args:
+        input (int): Number of input channels.
+        output (int): Number of output channels.
+        block_layers (int): Number of block layers.
+        kernel (int, optional): Kernel size for the convolution operation. Defaults to 2.
+        resnet (nn.Module, optional): ResNet block to be used. Defaults to InceptionResNet.
+    """
+    
     def __init__(self, input, output, block_layers, kernel=2, resnet=InceptionResNet):
         super(DownsampleWithPruning, self).__init__()
         self.resnet = resnet
@@ -328,6 +370,17 @@ class DownsampleWithPruning(nn.Module):
         self.pruning = ME.MinkowskiPruning()
 
     def make_layer(self, block, block_layers, channels):
+        """
+        Helper function to create a sequential layer of blocks.
+        
+        Args:
+            block (nn.Module): Block to be used.
+            block_layers (int): Number of block layers.
+            channels (int): Number of channels.
+        
+        Returns:
+            nn.Sequential: Sequential layer of blocks.
+        """
         layers = []
         for i in range(block_layers):
             layers.append(block(channels=channels))
@@ -335,6 +388,16 @@ class DownsampleWithPruning(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x, ref=None):
+        """
+        Forward pass of the module.
+        
+        Args:
+            x (torch.Tensor): Input tensor.
+            ref (torch.Tensor, optional): Reference tensor for pruning. Coordinates that are in ref will be kept. Defaults to None.
+        
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         out = self.down(x)
         if self.resnet is not None:
             out = self.block(self.relu(out))
