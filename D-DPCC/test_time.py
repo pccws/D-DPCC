@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument('--gpu', type=str, default='2', help='specify gpu device [default: 0]')
     parser.add_argument('--channels', default=8, type=int)
     parser.add_argument('--ckpt_dir', type=str,
-                        default='./final_ckpts')
+                        default='./ddpcc_ckpts')
     parser.add_argument('--pcgcv2_ckpt_dir', type=str,
                         default='./pcgcv2_ckpts')
     parser.add_argument('--frame_count', type=int, default=10, help='number of frames to be coded')
